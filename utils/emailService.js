@@ -47,8 +47,7 @@ function createTransporter() {
  */
 async function sendEmailBookingNotification(enquiryData) {
   try {
-    const settings = await getSettings();
-    const recipientEmail = (settings.email || process.env.NOTIFICATION_EMAIL || 'info@realindiajourney.com').trim();
+    const recipientEmail = 'info@realindiajourney.com';
 
     const name = enquiryData.fullName || enquiryData.name || 'Valued Guest';
     const phone = enquiryData.phone || 'Not provided';
@@ -158,9 +157,7 @@ async function sendEmailBookingNotification(enquiryData) {
     const transporter = createTransporter();
 
     if (!transporter) {
-      console.log(`ℹ️ [Email Service Notice]: SMTP credentials not yet specified in server/.env.`);
-      console.log(`   To send live emails to ${recipientEmail}, add SMTP_HOST, SMTP_USER, and SMTP_PASS to server/.env`);
-      return false;
+      throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.');
     }
 
     const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <${process.env.SMTP_USER}>`;
@@ -183,7 +180,7 @@ async function sendEmailBookingNotification(enquiryData) {
     return true;
   } catch (err) {
     console.error('❌ [Email Service Error]:', err.message);
-    return false;
+    throw err;
   }
 }
 
@@ -428,4 +425,3 @@ module.exports = {
   sendEmailBookingNotification,
   sendEmailContactNotification
 };
-

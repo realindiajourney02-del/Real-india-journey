@@ -7,42 +7,55 @@ const { sendWhatsAppBookingNotification } = require('../utils/whatsappService');
 const { sendEmailBookingNotification } = require('../utils/emailService');
 
 router.post('/', async (req, res) => {
+  const submittedData = req.body && typeof req.body === 'object' ? req.body : {};
+  const fullName = typeof submittedData.fullName === 'string' ? submittedData.fullName.trim() : '';
+  const email = typeof submittedData.email === 'string' ? submittedData.email.trim() : '';
+  const phone = typeof submittedData.phone === 'string' ? submittedData.phone.trim() : '';
+
+  if (!fullName || !phone || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ message: 'A name, valid email address, and phone number are required.' });
+  }
+
+  const enquiryData = { ...submittedData, fullName, email, phone };
+  let enquiry;
+
   try {
     if (!global.isMongoConnected) {
-      const newEnq = {
+      enquiry = {
         _id: `enq-${Date.now()}`,
-        ...req.body,
+        ...enquiryData,
         status: 'new',
         createdAt: new Date().toISOString()
       };
-      memoryStore.enquiries.unshift(newEnq);
-      
-      // Trigger WhatsApp & Email Alerts
-      sendWhatsAppBookingNotification(newEnq).catch(err => console.error('WhatsApp Error:', err.message));
-      sendEmailBookingNotification(newEnq).catch(err => console.error('Email Error:', err.message));
-
-      return res.status(201).json({
-        success: true,
-        message: 'Enquiry submitted successfully! Our travel specialist team will contact you within 2 hours.',
-        data: newEnq
-      });
+      memoryStore.enquiries.unshift(enquiry);
+    } else {
+      enquiry = await new Enquiry(enquiryData).save();
     }
-
-    const enquiry = new Enquiry(req.body);
-    const saved = await enquiry.save();
-
-    // Trigger WhatsApp & Email Alerts
-    sendWhatsAppBookingNotification(saved).catch(err => console.error('WhatsApp Error:', err.message));
-    sendEmailBookingNotification(saved).catch(err => console.error('Email Error:', err.message));
-
-    res.status(201).json({
-      success: true,
-      message: 'Enquiry submitted successfully! Our travel specialist team will contact you within 2 hours.',
-      data: saved
-    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    const statusCode = error.name === 'ValidationError' ? 400 : 500;
+    return res.status(statusCode).json({ message: error.message });
   }
+
+  sendWhatsAppBookingNotification(enquiry).catch(err => console.error('WhatsApp Error:', err.message));
+
+  try {
+    const emailSent = await sendEmailBookingNotification(enquiry);
+    if (!emailSent) {
+      throw new Error('Email service did not confirm delivery.');
+    }
+  } catch (error) {
+    console.error(`[Enquiry Email Delivery Failed] Enquiry ${enquiry._id}:`, error.message);
+    return res.status(502).json({
+      success: false,
+      message: 'Your enquiry was saved, but the notification email could not be sent. Please try again later.'
+    });
+  }
+
+  return res.status(201).json({
+    success: true,
+    message: 'Enquiry submitted successfully! Our travel specialist team will contact you within 2 hours.',
+    data: enquiry
+  });
 });
 
 router.get('/', protectAdmin, async (req, res) => {
