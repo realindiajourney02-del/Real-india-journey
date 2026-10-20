@@ -5,12 +5,121 @@ const Package = require('../models/Package');
 const memoryStore = require('../data/inMemoryStore');
 const { protectAdmin } = require('../middleware/authMiddleware');
 
+// Helper to check if MongoDB is active
+const isDbConnected = () => {
+  return Boolean(global.isMongoConnected || mongoose.connection.readyState === 1);
+};
+
+// Utility to generate clean URL slug
+const slugify = (text) => {
+  if (!text) return `pkg-${Date.now()}`;
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s-]+/g, '-');
+};
+
+// Build robust MongoDB query filter by key (_id or slug)
+function buildPackageQuery(key) {
+  if (!key) return {};
+  const cleanKey = String(key).trim();
+  const conditions = [];
+
+  // 1. Check if 24-character hexadecimal ObjectId
+  if (mongoose.Types.ObjectId.isValid(cleanKey) && /^[0-9a-fA-F]{24}$/.test(cleanKey)) {
+    try {
+      conditions.push({ _id: new mongoose.Types.ObjectId(cleanKey) });
+    } catch (e) {}
+  }
+
+  // 2. Also check _id as exact string (for non-ObjectId string IDs)
+  conditions.push({ _id: cleanKey });
+
+  // 3. Exact slug match
+  conditions.push({ slug: cleanKey });
+
+  // 4. Decoded URI component slug if different
+  try {
+    const decoded = decodeURIComponent(cleanKey);
+    if (decoded !== cleanKey) {
+      conditions.push({ slug: decoded });
+    }
+  } catch (e) {}
+
+  // 5. Case-insensitive slug regex match
+  const escaped = cleanKey.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+  conditions.push({ slug: { $regex: `^${escaped}$`, $options: 'i' } });
+
+  return { $or: conditions };
+}
+
+// Normalize package input fields before saving
+function normalizePackageData(data) {
+  const norm = { ...data };
+
+  // Sync price and priceVal
+  if (norm.price && (!norm.priceVal || isNaN(Number(norm.priceVal)))) {
+    const numeric = parseInt(String(norm.price).replace(/[^0-9]/g, ''), 10);
+    norm.priceVal = isNaN(numeric) ? 0 : numeric;
+  } else if (norm.priceVal !== undefined && norm.priceVal !== null && !norm.price) {
+    norm.price = `₹${Number(norm.priceVal).toLocaleString('en-IN')}`;
+  } else if (!norm.price && !norm.priceVal) {
+    norm.price = 'On Request';
+    norm.priceVal = 0;
+  }
+
+  // Sync duration and daysCount/nightsCount
+  if (norm.duration) {
+    if (!norm.daysCount || isNaN(Number(norm.daysCount))) {
+      const dayMatch = String(norm.duration).match(/(\d+)\s*Day/i);
+      norm.daysCount = dayMatch ? parseInt(dayMatch[1], 10) : 1;
+    }
+    if ((norm.nightsCount === undefined || norm.nightsCount === null || isNaN(Number(norm.nightsCount)))) {
+      const nightMatch = String(norm.duration).match(/(\d+)\s*Night/i);
+      norm.nightsCount = nightMatch ? parseInt(nightMatch[1], 10) : Math.max(0, Number(norm.daysCount) - 1);
+    }
+  } else {
+    norm.duration = `${norm.daysCount || 1} Days / ${norm.nightsCount || 0} Nights`;
+  }
+
+  // Ensure overview and description are populated
+  norm.overview = (norm.overview || norm.description || norm.title || '').trim();
+  norm.description = (norm.description || norm.overview || '').trim();
+
+  // Normalize highlights
+  if (typeof norm.highlightsText === 'string') {
+    norm.highlights = norm.highlightsText.split('\n').map(h => h.trim()).filter(Boolean);
+    delete norm.highlightsText;
+  } else if (Array.isArray(norm.highlights)) {
+    norm.highlights = norm.highlights.map(h => typeof h === 'string' ? h.trim() : h).filter(Boolean);
+  }
+
+  // Normalize itinerary
+  if (Array.isArray(norm.itinerary)) {
+    norm.itinerary = norm.itinerary.map(item => ({
+      day: item.day || '01',
+      title: (item.title || '').trim(),
+      desc: (item.desc || item.description || '').trim(),
+      highlights: Array.isArray(item.highlights)
+        ? item.highlights
+        : (typeof item.highlightsText === 'string' ? item.highlightsText.split('\n').map(h => h.trim()).filter(Boolean) : [])
+    }));
+  }
+
+  return norm;
+}
+
+// ==========================================
 // @route   GET /api/packages
+// @desc    Get all tour packages with filters
+// ==========================================
 router.get('/', async (req, res) => {
   try {
-    const { category, subcategory, search, featured, sort, includeSubcategories } = req.query;
+    const { category, subcategory, search, featured, sort } = req.query;
 
-    if (!global.isMongoConnected) {
+    if (!isDbConnected()) {
       let list = [...memoryStore.packages];
 
       if (category && category !== 'all') {
@@ -25,7 +134,6 @@ router.get('/', async (req, res) => {
           const pkgTitle = (p.title || '').trim().toLowerCase();
           const pkgSlug = (p.slug || '').trim().toLowerCase();
 
-          // Exclude mismatched packages (e.g. title/slug is 'masuri' when subcategory query is 'uttrakhand')
           if ((pkgTitle.includes('masuri') || pkgSlug.includes('masuri') || pkgTitle.includes('mussoorie')) && subLower !== 'masuri' && subLower !== 'mussoorie') {
             return false;
           }
@@ -37,7 +145,6 @@ router.get('/', async (req, res) => {
           if (pkgSub) {
             return pkgSub === subLower;
           }
-          // If subcategory not set on package, fallback match title or slug
           return pkgTitle === subLower || pkgSlug === subLower || pkgTitle.includes(subLower) || pkgSlug.includes(subLower);
         });
       }
@@ -69,9 +176,9 @@ router.get('/', async (req, res) => {
         });
       }
 
-      if (sort === 'price-low') list.sort((a, b) => a.priceVal - b.priceVal);
-      if (sort === 'price-high') list.sort((a, b) => b.priceVal - a.priceVal);
-      if (sort === 'duration') list.sort((a, b) => b.daysCount - a.daysCount);
+      if (sort === 'price-low') list.sort((a, b) => (a.priceVal || 0) - (b.priceVal || 0));
+      if (sort === 'price-high') list.sort((a, b) => (b.priceVal || 0) - (a.priceVal || 0));
+      if (sort === 'duration') list.sort((a, b) => (b.daysCount || 0) - (a.daysCount || 0));
       return res.json(list);
     }
 
@@ -97,7 +204,6 @@ router.get('/', async (req, res) => {
         }
       ];
 
-      // Exclude mismatched titles
       if (subLower !== 'masuri' && subLower !== 'mussoorie') {
         query.$and.push({ title: { $not: { $regex: 'masuri|mussoorie', $options: 'i' } } });
       }
@@ -150,47 +256,20 @@ router.get('/', async (req, res) => {
     const packages = await Package.find(query).sort(sortOptions).lean();
     res.json(packages);
   } catch (error) {
+    console.error('[Packages API] Error listing packages:', error);
     res.status(500).json({ message: error.message });
   }
 });
 
-function buildPackageQuery(key) {
-  if (!key) return {};
-  const cleanKey = String(key).trim();
-  const conditions = [];
-
-  const isValidObjectId = mongoose.Types.ObjectId.isValid(cleanKey) && /^[0-9a-fA-F]{24}$/.test(cleanKey);
-
-  if (isValidObjectId) {
-    try {
-      conditions.push({ _id: new mongoose.Types.ObjectId(cleanKey) });
-    } catch (e) {}
-  }
-
-  // Always query by slug
-  conditions.push({ slug: cleanKey });
-
-  // Query decoded URI component if different
-  try {
-    const decoded = decodeURIComponent(cleanKey);
-    if (decoded !== cleanKey) {
-      conditions.push({ slug: decoded });
-    }
-  } catch (e) {}
-
-  // Case-insensitive regex match on slug
-  const escaped = cleanKey.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-  conditions.push({ slug: { $regex: `^${escaped}$`, $options: 'i' } });
-
-  return { $or: conditions };
-}
-
+// ==========================================
 // @route   GET /api/packages/:id
+// @desc    Get single package by ID or Slug
+// ==========================================
 router.get('/:id', async (req, res) => {
   try {
     const key = req.params.id;
 
-    if (!global.isMongoConnected) {
+    if (!isDbConnected()) {
       const found = memoryStore.packages.find(p => 
         p.slug === key || 
         p._id === key || 
@@ -221,7 +300,7 @@ router.get('/:id', async (req, res) => {
 
     // Fallback search: fuzzy regex match on title or slug
     if (!packageItem) {
-      const slugLike = key.replace(/-/g, '.*');
+      const slugLike = key.replace(/[-_]/g, '.*');
       packageItem = await Package.findOne({
         $or: [
           { slug: { $regex: slugLike, $options: 'i' } },
@@ -233,82 +312,201 @@ router.get('/:id', async (req, res) => {
     if (!packageItem) return res.status(404).json({ message: 'Package not found' });
     res.json(packageItem);
   } catch (error) {
-    console.error(`[Packages API] Error fetching package with key "${req.params.id}":`, error);
+    console.error(`[Packages API] Error fetching package "${req.params.id}":`, error);
     res.status(500).json({ message: error.message });
   }
 });
 
+// ==========================================
 // @route   POST /api/packages
+// @desc    Add new tour package to MongoDB
+// ==========================================
 router.post('/', protectAdmin, async (req, res) => {
   try {
-    if (!global.isMongoConnected) {
+    const { title } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: 'Package Title is required' });
+    }
+
+    // Generate or sanitize slug
+    let finalSlug = req.body.slug ? slugify(req.body.slug) : slugify(title);
+    if (!finalSlug) finalSlug = `pkg-${Date.now()}`;
+
+    const normalized = normalizePackageData(req.body);
+    delete normalized._id; // Ensure clean new document ID
+
+    if (!isDbConnected()) {
+      // In-Memory store handling
+      let existingSlug = memoryStore.packages.find(p => p.slug === finalSlug);
+      if (existingSlug) {
+        finalSlug = `${finalSlug}-${Date.now().toString().slice(-4)}`;
+      }
+
       const newPkg = {
         _id: `pkg-${Date.now()}`,
-        slug: req.body.slug || req.body.title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, ''),
-        ...req.body
+        ...normalized,
+        slug: finalSlug,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
       memoryStore.packages.unshift(newPkg);
       memoryStore.saveToDisk();
       return res.status(201).json(newPkg);
     }
 
-    const doc = {
-      ...req.body,
+    // Ensure unique slug in MongoDB
+    const existingPkg = await Package.findOne({ slug: finalSlug });
+    if (existingPkg) {
+      finalSlug = `${finalSlug}-${Date.now().toString().slice(-4)}`;
+    }
+
+    const docToSave = {
+      ...normalized,
+      slug: finalSlug,
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    const result = await Package.collection.insertOne(doc);
-    const savedPackage = await Package.findById(result.insertedId).lean();
-    res.status(201).json(savedPackage);
+
+    // Save using Mongoose model
+    const createdPackage = await Package.create(docToSave);
+    const result = await Package.findById(createdPackage._id).lean();
+
+    // Also keep memoryStore synchronized
+    if (Array.isArray(memoryStore.packages)) {
+      memoryStore.packages.unshift(result);
+    }
+
+    res.status(201).json(result);
   } catch (error) {
+    console.error('[Packages API] Error creating package:', error);
     res.status(400).json({ message: error.message });
   }
 });
 
+// ==========================================
 // @route   PUT /api/packages/:id
+// @desc    Edit existing package in MongoDB
+// ==========================================
 router.put('/:id', protectAdmin, async (req, res) => {
   try {
     const key = req.params.id;
 
-    if (!global.isMongoConnected) {
+    if (!isDbConnected()) {
       const index = memoryStore.packages.findIndex(p => p._id === key || p.slug === key);
       if (index === -1) return res.status(404).json({ message: 'Package not found' });
-      memoryStore.packages[index] = { ...memoryStore.packages[index], ...req.body };
+      const updated = {
+        ...memoryStore.packages[index],
+        ...normalizePackageData(req.body),
+        updatedAt: new Date().toISOString()
+      };
+      memoryStore.packages[index] = updated;
       memoryStore.saveToDisk();
-      return res.json(memoryStore.packages[index]);
+      return res.json(updated);
     }
 
     const filter = buildPackageQuery(key);
-    const updateData = { ...req.body, updatedAt: new Date() };
+    const updateData = normalizePackageData(req.body);
     delete updateData._id;
+    updateData.updatedAt = new Date();
 
-    await Package.collection.updateOne(filter, { $set: updateData });
-    const updatedPackage = await Package.findOne(filter).lean();
-    if (!updatedPackage) return res.status(404).json({ message: 'Package not found' });
+    // If slug is provided and modified, sanitize and ensure uniqueness
+    if (updateData.slug) {
+      updateData.slug = slugify(updateData.slug);
+      const existingOther = await Package.findOne({
+        slug: updateData.slug,
+        $nor: [filter]
+      });
+      if (existingOther) {
+        updateData.slug = `${updateData.slug}-${Date.now().toString().slice(-4)}`;
+      }
+    }
+
+    // Execute atomic update and return updated document
+    let updatedPackage = await Package.findOneAndUpdate(
+      filter,
+      { $set: updateData },
+      { new: true, runValidators: false }
+    ).lean();
+
+    // Fallback: check raw collection directly for non-ObjectId string _id
+    if (!updatedPackage) {
+      try {
+        await Package.collection.updateOne(
+          { $or: [{ _id: key }, { slug: key }] },
+          { $set: updateData }
+        );
+        updatedPackage = await Package.collection.findOne({
+          $or: [{ _id: key }, { slug: updateData.slug || key }]
+        });
+      } catch (e) {}
+    }
+
+    if (!updatedPackage) {
+      return res.status(404).json({ message: 'Package not found' });
+    }
+
+    // Keep memoryStore synchronized
+    if (Array.isArray(memoryStore.packages)) {
+      const mIdx = memoryStore.packages.findIndex(p => String(p._id) === String(key) || p.slug === key);
+      if (mIdx !== -1) {
+        memoryStore.packages[mIdx] = { ...memoryStore.packages[mIdx], ...updatedPackage };
+      }
+    }
+
     res.json(updatedPackage);
   } catch (error) {
+    console.error(`[Packages API] Error updating package "${req.params.id}":`, error);
     res.status(400).json({ message: error.message });
   }
 });
 
+// ==========================================
 // @route   DELETE /api/packages/:id
+// @desc    Delete package from MongoDB
+// ==========================================
 router.delete('/:id', protectAdmin, async (req, res) => {
   try {
     const key = req.params.id;
 
-    if (!global.isMongoConnected) {
+    if (!isDbConnected()) {
       const index = memoryStore.packages.findIndex(p => p._id === key || p.slug === key);
       if (index === -1) return res.status(404).json({ message: 'Package not found' });
       memoryStore.packages.splice(index, 1);
       memoryStore.saveToDisk();
-      return res.json({ message: 'Package removed successfully' });
+      return res.json({ message: 'Package removed successfully', id: key });
     }
 
     const filter = buildPackageQuery(key);
-    const deletedPackage = await Package.findOneAndDelete(filter);
-    if (!deletedPackage) return res.status(404).json({ message: 'Package not found' });
-    res.json({ message: 'Package removed successfully' });
+    let deletedPackage = await Package.findOneAndDelete(filter);
+
+    // Fallback: delete from raw collection (handles non-ObjectId string _id values)
+    if (!deletedPackage) {
+      try {
+        const rawRes = await Package.collection.deleteOne({
+          $or: [{ _id: key }, { slug: key }]
+        });
+        if (rawRes && rawRes.deletedCount > 0) {
+          deletedPackage = { _id: key };
+        }
+      } catch (e) {}
+    }
+
+    if (!deletedPackage) {
+      return res.status(404).json({ message: 'Package not found' });
+    }
+
+    // Also remove from inMemoryStore if present
+    if (Array.isArray(memoryStore.packages)) {
+      const mIdx = memoryStore.packages.findIndex(p => String(p._id) === String(key) || p.slug === key);
+      if (mIdx !== -1) {
+        memoryStore.packages.splice(mIdx, 1);
+        memoryStore.saveToDisk();
+      }
+    }
+
+    res.json({ message: 'Package removed successfully', id: key });
   } catch (error) {
+    console.error(`[Packages API] Error deleting package "${req.params.id}":`, error);
     res.status(500).json({ message: error.message });
   }
 });

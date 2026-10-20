@@ -1,16 +1,16 @@
 const mongoose = require('mongoose');
 
 const itineraryItemSchema = new mongoose.Schema({
-  day: { type: String, required: true },
-  title: { type: String, required: true },
-  desc: { type: String, required: true },
+  day: { type: String, default: '01' },
+  title: { type: String, default: '' },
+  desc: { type: String, default: '' },
   highlights: [{ type: String }]
-});
+}, { _id: false });
 
 const faqItemSchema = new mongoose.Schema({
-  q: { type: String, required: true },
-  a: { type: String, required: true }
-});
+  q: { type: String, default: '' },
+  a: { type: String, default: '' }
+}, { _id: false });
 
 const packageSchema = new mongoose.Schema({
   slug: { type: String, required: true, unique: true, index: true },
@@ -25,22 +25,23 @@ const packageSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
-  duration: { type: String, required: true },
-  daysCount: { type: Number, required: true },
-  nightsCount: { type: Number, required: true },
-  route: { type: String, required: true },
-  price: { type: String, required: true },
-  priceVal: { type: Number, required: true },
-  image: { type: String, required: true },
+  duration: { type: String, default: '1 Day' },
+  daysCount: { type: Number, default: 1 },
+  nightsCount: { type: Number, default: 0 },
+  route: { type: String, default: '' },
+  price: { type: String, default: 'On Request' },
+  priceVal: { type: Number, default: 0 },
+  image: { type: String, default: 'https://images.unsplash.com/photo-1599661046289-e31897846e41' },
   heroImages: [{ type: String }],
-  description: { type: String, required: true },
+  description: { type: String, default: '' },
   highlights: [{ type: String }],
-  overview: { type: String, required: true },
-  accommodations: { type: String },
-  transportation: { type: String },
-  meals: { type: String },
+  overview: { type: String, default: '' },
+  accommodations: { type: String, default: '' },
+  transportation: { type: String, default: '' },
+  meals: { type: String, default: '' },
   itinerary: [itineraryItemSchema],
   inclusions: [{ type: String }],
+  exclusions: [{ type: String }],
   faqs: [faqItemSchema],
   isFeatured: { type: Boolean, default: false },
 
@@ -54,3 +55,4 @@ const packageSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.models.Package || mongoose.model('Package', packageSchema);
+

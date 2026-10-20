@@ -15,4 +15,17 @@ const connectDB = async () => {
   }
 };
 
+mongoose.connection.on('connected', () => {
+  global.isMongoConnected = true;
+});
+
+mongoose.connection.on('disconnected', () => {
+  global.isMongoConnected = false;
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('[MongoDB Connection Event Error]:', err.message);
+});
+
 module.exports = connectDB;
+
