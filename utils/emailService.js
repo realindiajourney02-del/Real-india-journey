@@ -162,11 +162,12 @@ async function sendEmailBookingNotification(enquiryData) {
     }
 
     const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <${process.env.SMTP_USER}>`;
+    const replyToAddress = (process.env.REPLY_TO_EMAIL || settings.email || 'info@realindiajourney.com').trim();
 
     const info = await transporter.sendMail({
       from: fromAddress,
       to: recipientEmail,
-      replyTo: email !== 'Not provided' ? email : undefined,
+      replyTo: replyToAddress,
       subject: mailSubject,
       html: mailHtml
     });
@@ -243,9 +244,11 @@ async function sendGuestBookingConfirmation(enquiryData, transporter, fromAddres
       </div>
     `;
 
+    const replyToAddress = (process.env.REPLY_TO_EMAIL || 'info@realindiajourney.com').trim();
     await transporter.sendMail({
       from: fromAddress,
       to: guestEmail,
+      replyTo: replyToAddress,
       subject: mailSubject,
       html: mailHtml
     });
@@ -337,11 +340,12 @@ async function sendEmailContactNotification(contactData) {
     if (!transporter) return false;
 
     const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <${process.env.SMTP_USER}>`;
+    const replyToAddress = (process.env.REPLY_TO_EMAIL || settings.email || 'info@realindiajourney.com').trim();
 
     await transporter.sendMail({
       from: fromAddress,
       to: recipientEmail,
-      replyTo: email !== 'N/A' ? email : undefined,
+      replyTo: replyToAddress,
       subject: mailSubject,
       html: mailHtml
     });
@@ -408,9 +412,11 @@ async function sendGuestContactConfirmation(contactData, transporter, fromAddres
       </div>
     `;
 
+    const replyToAddress = (process.env.REPLY_TO_EMAIL || 'info@realindiajourney.com').trim();
     await transporter.sendMail({
       from: fromAddress,
       to: guestEmail,
+      replyTo: replyToAddress,
       subject: mailSubject,
       html: mailHtml
     });
