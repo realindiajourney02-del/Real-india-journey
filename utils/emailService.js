@@ -47,7 +47,8 @@ function createTransporter() {
  */
 async function sendEmailBookingNotification(enquiryData) {
   try {
-    const recipientEmail = 'info@realindiajourney.com';
+    const settings = await getSettings();
+    const recipientEmail = (process.env.NOTIFICATION_EMAIL || settings.notificationEmail || settings.email || 'realindiajourney02@gmail.com').trim();
 
     const name = enquiryData.fullName || enquiryData.name || 'Valued Guest';
     const phone = enquiryData.phone || 'Not provided';
@@ -262,7 +263,7 @@ async function sendGuestBookingConfirmation(enquiryData, transporter, fromAddres
 async function sendEmailContactNotification(contactData) {
   try {
     const settings = await getSettings();
-    const recipientEmail = (settings.email || process.env.NOTIFICATION_EMAIL || 'info@realindiajourney.com').trim();
+    const recipientEmail = (process.env.NOTIFICATION_EMAIL || settings.notificationEmail || settings.email || 'realindiajourney02@gmail.com').trim();
 
     const name = contactData.fullName || contactData.name || 'Visitor';
     const phone = contactData.phone || 'N/A';

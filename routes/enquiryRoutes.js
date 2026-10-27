@@ -39,16 +39,9 @@ router.post('/', async (req, res) => {
   sendWhatsAppBookingNotification(enquiry).catch(err => console.error('WhatsApp Error:', err.message));
 
   try {
-    const emailSent = await sendEmailBookingNotification(enquiry);
-    if (!emailSent) {
-      throw new Error('Email service did not confirm delivery.');
-    }
+    await sendEmailBookingNotification(enquiry);
   } catch (error) {
     console.error(`[Enquiry Email Delivery Failed] Enquiry ${enquiry._id}:`, error.message);
-    return res.status(502).json({
-      success: false,
-      message: 'Your enquiry was saved, but the notification email could not be sent. Please try again later.'
-    });
   }
 
   return res.status(201).json({

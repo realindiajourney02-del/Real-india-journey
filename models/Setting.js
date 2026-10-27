@@ -5,6 +5,7 @@ const settingSchema = new mongoose.Schema({
   tagline: { type: String, default: "Authentic Luxury India Travel & Tailor-Made Tours" },
   phone: { type: String, default: "+91 98765 43210" },
   email: { type: String, default: "info@realindiajourney.com" },
+  notificationEmail: { type: String, default: "realindiajourney02@gmail.com" },
   address: { type: String, default: "Real India Journey House, C-Scheme, Jaipur, Rajasthan 302001, India" },
   whatsapp: { type: String, default: "+919876543210" },
   whatsappNotifyPhone: { type: String, default: "+919876543210" },
@@ -20,7 +21,7 @@ const settingSchema = new mongoose.Schema({
   statsTours: { type: String, default: "1,500+" },
   statsRating: { type: String, default: "4.9/5" },
   statsYears: { type: String, default: "15+" },
-  
+
   // Hero Banner Images for All Pages
   homeHeroImage1: { type: String, default: "/images/jodhpur_blue_city.jpg" },
   homeHeroImage2: { type: String, default: "/images/jodhpur_jaswant_thada.jpg" },
