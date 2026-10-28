@@ -1760,7 +1760,7 @@ const INITIAL_SETTINGS = {
   tagline: "Authentic Luxury India Travel & Tailor-Made Tours",
   phone: "+91 96496 05100",
   email: "info@realindiajourney.com",
-  notificationEmail: "info@realindiajourney.com",
+  notificationEmail: "realindiajourney02@gmail.com",
   address: "Plot No - 41, Dev Nagar, Digari Kalan, Jodhpur, Rajasthan 342015",
   whatsapp: "+91 96496 05100",
   whatsappNotifyPhone: "+91 96496 05100",
