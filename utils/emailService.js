@@ -22,7 +22,7 @@ async function getSettings() {
  */
 function createTransporter() {
   const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com";
-  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
+  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
   const secure = process.env.SMTP_SECURE === 'true' || port === 465;
   const user = process.env.SMTP_USER || process.env.EMAIL_USER || "realindiajourney02@gmail.com";
   const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS || "pdbsxfitacoeoqii";
@@ -38,7 +38,10 @@ function createTransporter() {
     auth: { user, pass },
     tls: {
       rejectUnauthorized: false
-    }
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
   });
 }
 
@@ -434,6 +437,7 @@ module.exports = {
   sendEmailBookingNotification,
   sendEmailContactNotification
 };
+
 
 
 
