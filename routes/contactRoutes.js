@@ -45,20 +45,39 @@ router.post('/', async (req, res) => {
     sendWhatsAppContactNotification(savedContact).catch(err => console.error('WhatsApp Error:', err.message));
 
     // Await Email Notification so the connection does not close before email completes
+    let emailStatus = { sent: false };
     try {
-      await sendEmailContactNotification(savedContact);
+      const emailResult = await sendEmailContactNotification(savedContact);
+      emailStatus = { sent: true, ...emailResult };
     } catch (emailErr) {
       console.error(`[Contact Email Delivery Failed]:`, emailErr.message);
+      emailStatus = { sent: false, error: emailErr.message };
     }
 
     return res.status(201).json({
       success: true,
       message: 'Message sent successfully! We will get back to you shortly.',
+      emailStatus,
       data: savedContact
     });
   } catch (error) {
     console.error('Contact Form Submission Error:', error);
     res.status(400).json({ message: error.message });
+  }
+});
+
+router.get('/test-email', async (req, res) => {
+  try {
+    const emailResult = await sendEmailContactNotification({
+      fullName: 'Diagnostics Test Guest',
+      email: 'visitor.tester@gmail.com',
+      phone: '+91 96496 05100',
+      subject: 'Diagnostics Test Live Email',
+      message: 'This is a test notification to realindiajourney02@gmail.com'
+    });
+    return res.json({ success: true, emailResult });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message, stack: err.stack });
   }
 });
 
@@ -109,3 +128,5 @@ router.delete('/:id', protectAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+
