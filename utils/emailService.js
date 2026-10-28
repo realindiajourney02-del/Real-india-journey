@@ -21,11 +21,11 @@ async function getSettings() {
  * Create Nodemailer Transporter from process.env or settings
  */
 function createTransporter() {
-  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com";
   const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
   const secure = process.env.SMTP_SECURE === 'true' || port === 465;
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER || "realindiajourney02@gmail.com";
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS || "pdbsxfitacoeoqii";
 
   if (!host || !user || !pass) {
     return null; // Return null if SMTP not configured yet
@@ -161,7 +161,7 @@ async function sendEmailBookingNotification(enquiryData) {
       throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.');
     }
 
-    const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <${process.env.SMTP_USER}>`;
+    const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <realindiajourney02@gmail.com>`;
     const replyToAddress = (email && email !== 'N/A' && email.includes('@')) ? email : (process.env.REPLY_TO_EMAIL || settings.email || 'realindiajourney02@gmail.com').trim();
 
     const info = await transporter.sendMail({
@@ -341,7 +341,7 @@ async function sendEmailContactNotification(contactData) {
       throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.');
     }
 
-    const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <${process.env.SMTP_USER}>`;
+    const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <realindiajourney02@gmail.com>`;
     const replyToAddress = (email && email !== 'N/A' && email.includes('@')) ? email : (process.env.REPLY_TO_EMAIL || settings.email || 'realindiajourney02@gmail.com').trim();
 
     await transporter.sendMail({
@@ -434,5 +434,6 @@ module.exports = {
   sendEmailBookingNotification,
   sendEmailContactNotification
 };
+
 
 
