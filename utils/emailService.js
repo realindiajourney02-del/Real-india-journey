@@ -162,7 +162,7 @@ async function sendEmailBookingNotification(enquiryData) {
     }
 
     const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <${process.env.SMTP_USER}>`;
-    const replyToAddress = (process.env.REPLY_TO_EMAIL || settings.email || 'realindiajourney02@gmail.com').trim();
+    const replyToAddress = (email && email !== 'N/A' && email.includes('@')) ? email : (process.env.REPLY_TO_EMAIL || settings.email || 'realindiajourney02@gmail.com').trim();
 
     const info = await transporter.sendMail({
       from: fromAddress,
@@ -337,10 +337,12 @@ async function sendEmailContactNotification(contactData) {
     console.log('==================================================\n');
 
     const transporter = createTransporter();
-    if (!transporter) return false;
+    if (!transporter) {
+      throw new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.');
+    }
 
     const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <${process.env.SMTP_USER}>`;
-    const replyToAddress = (process.env.REPLY_TO_EMAIL || settings.email || 'realindiajourney02@gmail.com').trim();
+    const replyToAddress = (email && email !== 'N/A' && email.includes('@')) ? email : (process.env.REPLY_TO_EMAIL || settings.email || 'realindiajourney02@gmail.com').trim();
 
     await transporter.sendMail({
       from: fromAddress,
@@ -432,3 +434,5 @@ module.exports = {
   sendEmailBookingNotification,
   sendEmailContactNotification
 };
+
+

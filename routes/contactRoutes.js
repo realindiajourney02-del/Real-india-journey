@@ -8,44 +8,56 @@ const { sendEmailContactNotification } = require('../utils/emailService');
 
 router.post('/', async (req, res) => {
   try {
+    const fullName = typeof req.body.fullName === 'string' ? req.body.fullName.trim() : '';
+    const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+    const phone = typeof req.body.phone === 'string' && req.body.phone.trim() ? req.body.phone.trim() : 'Not provided';
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    const subject = typeof req.body.subject === 'string' && req.body.subject.trim() ? req.body.subject.trim() : 'General Inquiry';
+
+    if (!fullName || !email || !message) {
+      return res.status(400).json({ message: 'Name, email, and message are required.' });
+    }
+
     const contactPayload = {
-      ...req.body,
-      subject: req.body.subject || 'General Inquiry'
+      fullName,
+      email,
+      phone,
+      subject,
+      message
     };
 
+    let savedContact;
+
     if (!global.isMongoConnected) {
-      const newCnt = {
+      savedContact = {
         _id: `cnt-${Date.now()}`,
         ...contactPayload,
         status: 'new',
         createdAt: new Date().toISOString()
       };
-      memoryStore.contacts.unshift(newCnt);
-
-      // Trigger WhatsApp & Email Alerts
-      sendWhatsAppContactNotification(newCnt).catch(err => console.error('WhatsApp Error:', err.message));
-      sendEmailContactNotification(newCnt).catch(err => console.error('Email Error:', err.message));
-
-      return res.status(201).json({
-        success: true,
-        message: 'Message sent successfully! We will get back to you shortly.',
-        data: newCnt
-      });
+      memoryStore.contacts.unshift(savedContact);
+    } else {
+      const contact = new Contact(contactPayload);
+      savedContact = await contact.save();
     }
 
-    const contact = new Contact(contactPayload);
-    const saved = await contact.save();
+    // Trigger WhatsApp Notification in background
+    sendWhatsAppContactNotification(savedContact).catch(err => console.error('WhatsApp Error:', err.message));
 
-    // Trigger WhatsApp & Email Alerts
-    sendWhatsAppContactNotification(saved).catch(err => console.error('WhatsApp Error:', err.message));
-    sendEmailContactNotification(saved).catch(err => console.error('Email Error:', err.message));
+    // Await Email Notification so the connection does not close before email completes
+    try {
+      await sendEmailContactNotification(savedContact);
+    } catch (emailErr) {
+      console.error(`[Contact Email Delivery Failed]:`, emailErr.message);
+    }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Message sent successfully! We will get back to you shortly.',
-      data: saved
+      data: savedContact
     });
   } catch (error) {
+    console.error('Contact Form Submission Error:', error);
     res.status(400).json({ message: error.message });
   }
 });
