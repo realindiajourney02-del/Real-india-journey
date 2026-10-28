@@ -365,7 +365,7 @@ async function sendEmailContactNotification(contactData) {
     return true;
   } catch (err) {
     console.error('❌ [Email Contact Alert Error]:', err.message);
-    return false;
+    throw err;
   }
 }
 
@@ -437,6 +437,7 @@ module.exports = {
   sendEmailBookingNotification,
   sendEmailContactNotification
 };
+
 
 
 
