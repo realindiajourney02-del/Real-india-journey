@@ -66,21 +66,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/test-email', async (req, res) => {
-  try {
-    const emailResult = await sendEmailContactNotification({
-      fullName: 'Diagnostics Test Guest',
-      email: 'visitor.tester@gmail.com',
-      phone: '+91 96496 05100',
-      subject: 'Diagnostics Test Live Email',
-      message: 'This is a test notification to realindiajourney02@gmail.com'
-    });
-    return res.json({ success: true, emailResult });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message, stack: err.stack });
-  }
-});
-
 router.get('/', protectAdmin, async (req, res) => {
   try {
     if (!global.isMongoConnected) {
@@ -128,5 +113,6 @@ router.delete('/:id', protectAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
 
 
