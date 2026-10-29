@@ -46,12 +46,26 @@ function createTransporter() {
 }
 
 /**
+ * Get target recipient email for admin notifications
+ * Automatically ensures notifications route to info@realindiajourney.com
+ */
+function getRecipientEmail(settings) {
+  if (settings && settings.notificationEmail && settings.notificationEmail !== 'realindiajourney02@gmail.com') {
+    return settings.notificationEmail.trim();
+  }
+  if (process.env.NOTIFICATION_EMAIL && process.env.NOTIFICATION_EMAIL !== 'realindiajourney02@gmail.com') {
+    return process.env.NOTIFICATION_EMAIL.trim();
+  }
+  return 'info@realindiajourney.com';
+}
+
+/**
  * Send Email notification for New Booking Enquiry
  */
 async function sendEmailBookingNotification(enquiryData) {
   try {
     const settings = await getSettings();
-    const recipientEmail = (process.env.NOTIFICATION_EMAIL || settings.notificationEmail || settings.email || 'info@realindiajourney.com').trim();
+    const recipientEmail = getRecipientEmail(settings);
 
     const name = enquiryData.fullName || enquiryData.name || 'Valued Guest';
     const phone = enquiryData.phone || 'Not provided';
@@ -269,7 +283,7 @@ async function sendGuestBookingConfirmation(enquiryData, transporter, fromAddres
 async function sendEmailContactNotification(contactData) {
   try {
     const settings = await getSettings();
-    const recipientEmail = (process.env.NOTIFICATION_EMAIL || settings.notificationEmail || settings.email || 'info@realindiajourney.com').trim();
+    const recipientEmail = getRecipientEmail(settings);
 
     const name = contactData.fullName || contactData.name || 'Visitor';
     const phone = contactData.phone || 'N/A';
