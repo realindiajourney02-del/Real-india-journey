@@ -5,7 +5,7 @@ const settingSchema = new mongoose.Schema({
   tagline: { type: String, default: "Authentic Luxury India Travel & Tailor-Made Tours" },
   phone: { type: String, default: "+91 98765 43210" },
   email: { type: String, default: "info@realindiajourney.com" },
-  notificationEmail: { type: String, default: "realindiajourney02@gmail.com" },
+  notificationEmail: { type: String, default: "info@realindiajourney.com" },
   address: { type: String, default: "Real India Journey House, C-Scheme, Jaipur, Rajasthan 302001, India" },
   whatsapp: { type: String, default: "+919876543210" },
   whatsappNotifyPhone: { type: String, default: "+919876543210" },
