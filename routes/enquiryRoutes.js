@@ -38,15 +38,19 @@ router.post('/', async (req, res) => {
 
   sendWhatsAppBookingNotification(enquiry).catch(err => console.error('WhatsApp Error:', err.message));
 
+  let emailStatus = { sent: false };
   try {
-    await sendEmailBookingNotification(enquiry);
+    const emailResult = await sendEmailBookingNotification(enquiry);
+    emailStatus = { sent: true, ...(typeof emailResult === 'object' ? emailResult : {}) };
   } catch (error) {
     console.error(`[Enquiry Email Delivery Failed] Enquiry ${enquiry._id}:`, error.message);
+    emailStatus = { sent: false, error: error.message };
   }
 
   return res.status(201).json({
     success: true,
     message: 'Enquiry submitted successfully! Our travel specialist team will contact you within 2 hours.',
+    emailStatus,
     data: enquiry
   });
 });

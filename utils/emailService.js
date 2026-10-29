@@ -196,7 +196,7 @@ async function sendEmailBookingNotification(enquiryData) {
       await sendGuestBookingConfirmation(enquiryData, transporter, fromAddress);
     }
 
-    return true;
+    return { sent: true, recipient: recipientEmail, messageId: info.messageId };
   } catch (err) {
     console.error('❌ [Email Service Error]:', err.message);
     throw err;
@@ -376,7 +376,7 @@ async function sendEmailContactNotification(contactData) {
       await sendGuestContactConfirmation(contactData, transporter, fromAddress);
     }
 
-    return true;
+    return { sent: true, recipient: recipientEmail, messageId: info.messageId };
   } catch (err) {
     console.error('❌ [Email Contact Alert Error]:', err.message);
     throw err;

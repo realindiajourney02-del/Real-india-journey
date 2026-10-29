@@ -35,7 +35,12 @@ registerRoute('/upload', require('./routes/uploadRoutes'));
 
 // Health check endpoint (accessible at /, /health, and /api/health)
 app.get(['/', '/health', '/api/health'], (req, res) => {
-  res.json({ status: 'active', message: 'Real India Journey API operational' });
+  res.json({
+    status: 'active',
+    message: 'Real India Journey API operational',
+    targetEmail: 'info@realindiajourney.com',
+    version: '2.2-info-mail'
+  });
 });
 
 // Error handling middleware
