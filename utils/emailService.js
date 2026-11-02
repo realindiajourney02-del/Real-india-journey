@@ -27,8 +27,18 @@ function createTransporter() {
   const user = process.env.SMTP_USER || process.env.EMAIL_USER || "realindiajourney02@gmail.com";
   const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS || "pdbsxfitacoeoqii";
 
-  if (!host || !user || !pass) {
-    return null; // Return null if SMTP not configured yet
+  if (!user || !pass) {
+    return null;
+  }
+
+  if (host === 'smtp.gmail.com' || host === 'gmail') {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
   }
 
   return nodemailer.createTransport({
@@ -36,7 +46,6 @@ function createTransporter() {
     port,
     secure,
     auth: { user, pass },
-    family: 4,
     tls: {
       rejectUnauthorized: false
     },
