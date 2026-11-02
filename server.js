@@ -38,8 +38,8 @@ app.get(['/', '/health', '/api/health'], (req, res) => {
   res.json({
     status: 'active',
     message: 'Real India Journey API operational',
-    targetEmail: 'info@realindiajourney.com',
-    version: '2.2-info-mail'
+    targetEmail: process.env.NOTIFICATION_EMAIL || 'realindiajourney02@gmail.com',
+    version: '2.3-gmail-sync'
   });
 });
 
