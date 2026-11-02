@@ -50,13 +50,13 @@ function createTransporter() {
  * Automatically ensures notifications route to info@realindiajourney.com
  */
 function getRecipientEmail(settings) {
-  if (settings && settings.notificationEmail && settings.notificationEmail !== 'realindiajourney02@gmail.com') {
-    return settings.notificationEmail.trim();
-  }
-  if (process.env.NOTIFICATION_EMAIL && process.env.NOTIFICATION_EMAIL !== 'realindiajourney02@gmail.com') {
+  if (process.env.NOTIFICATION_EMAIL && process.env.NOTIFICATION_EMAIL.trim()) {
     return process.env.NOTIFICATION_EMAIL.trim();
   }
-  return 'info@realindiajourney.com';
+  if (settings && settings.notificationEmail && settings.notificationEmail.trim()) {
+    return settings.notificationEmail.trim();
+  }
+  return 'realindiajourney02@gmail.com';
 }
 
 /**
