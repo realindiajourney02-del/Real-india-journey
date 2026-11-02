@@ -36,12 +36,13 @@ function createTransporter() {
     port,
     secure,
     auth: { user, pass },
+    family: 4,
     tls: {
       rejectUnauthorized: false
     },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000
   });
 }
 
