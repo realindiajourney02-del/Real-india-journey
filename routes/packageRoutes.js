@@ -34,9 +34,6 @@ function buildPackageQuery(key) {
     } catch (e) {}
   }
 
-  // 2. Also check _id as exact string (for non-ObjectId string IDs)
-  conditions.push({ _id: cleanKey });
-
   // 3. Exact slug match
   conditions.push({ slug: cleanKey });
 

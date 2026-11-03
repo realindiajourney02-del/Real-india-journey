@@ -371,7 +371,7 @@ async function sendEmailContactNotification(contactData) {
     const fromAddress = process.env.EMAIL_FROM || `"Real India Journey Team" <realindiajourney02@gmail.com>`;
     const replyToAddress = (email && email !== 'N/A' && email.includes('@')) ? email : (process.env.REPLY_TO_EMAIL || settings.email || 'info@realindiajourney.com').trim();
 
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: fromAddress,
       to: recipientEmail,
       replyTo: replyToAddress,
