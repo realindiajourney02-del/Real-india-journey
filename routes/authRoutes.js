@@ -96,4 +96,41 @@ router.put('/credentials', protectAdmin, async (req, res) => {
   }
 });
 
+// @route   PUT /api/auth/change-password
+router.put('/change-password', protectAdmin, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.trim().length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters long.' });
+    }
+
+    if (!global.isMongoConnected) {
+      if (currentPassword && !bcrypt.compareSync(currentPassword, memoryStore.adminUser.passwordHash)) {
+        return res.status(400).json({ message: 'Current password does not match.' });
+      }
+      memoryStore.adminUser.passwordHash = bcrypt.hashSync(newPassword.trim(), 10);
+      return res.json({ success: true, message: 'Password updated successfully!' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'Admin user not found.' });
+    }
+
+    if (currentPassword) {
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password does not match.' });
+      }
+    }
+
+    user.password = newPassword.trim();
+    await user.save();
+
+    res.json({ success: true, message: 'Password updated successfully!' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
